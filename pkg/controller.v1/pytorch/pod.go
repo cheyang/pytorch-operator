@@ -256,18 +256,38 @@ func setClusterSpec(podTemplateSpec *v1.PodTemplateSpec, job *pyv1.PyTorchJob, t
 		if len(podTemplateSpec.Spec.Containers[i].Env) == 0 {
 			podTemplateSpec.Spec.Containers[i].Env = make([]v1.EnvVar, 0)
 		}
-		podTemplateSpec.Spec.Containers[i].Env = append(podTemplateSpec.Spec.Containers[i].Env, v1.EnvVar{
-			Name:  "MASTER_PORT",
-			Value: strconv.Itoa(int(masterPort)),
-		})
-		podTemplateSpec.Spec.Containers[i].Env = append(podTemplateSpec.Spec.Containers[i].Env, v1.EnvVar{
-			Name:  "MASTER_ADDR",
-			Value: masterAddr,
-		})
-		podTemplateSpec.Spec.Containers[i].Env = append(podTemplateSpec.Spec.Containers[i].Env, v1.EnvVar{
-			Name:  "WORLD_SIZE",
-			Value: strconv.Itoa(int(totalReplicas)),
-		})
+		masterAddrFound := false
+		masterPortFound := false
+		worldSizeFound := false
+
+		for _, env := range podTemplateSpec.Spec.Containers[i].Env {
+			switch env.Name {
+			case "MASTER_ADDR":
+				masterAddrFound = true
+			case "MASTER_PORT":
+				masterPortFound = true
+			case "WORLD_SIZE":
+				worldSizeFound = true
+			}
+		}
+		if !masterPortFound {
+			podTemplateSpec.Spec.Containers[i].Env = append(podTemplateSpec.Spec.Containers[i].Env, v1.EnvVar{
+				Name:  "MASTER_PORT",
+				Value: strconv.Itoa(int(masterPort)),
+			})
+		}
+		if !masterAddrFound {
+			podTemplateSpec.Spec.Containers[i].Env = append(podTemplateSpec.Spec.Containers[i].Env, v1.EnvVar{
+				Name:  "MASTER_ADDR",
+				Value: masterAddr,
+			})
+		}
+		if !worldSizeFound {
+			podTemplateSpec.Spec.Containers[i].Env = append(podTemplateSpec.Spec.Containers[i].Env, v1.EnvVar{
+				Name:  "WORLD_SIZE",
+				Value: strconv.Itoa(int(totalReplicas)),
+			})
+		}
 		podTemplateSpec.Spec.Containers[i].Env = append(podTemplateSpec.Spec.Containers[i].Env, v1.EnvVar{
 			Name:  "RANK",
 			Value: strconv.Itoa(rank),

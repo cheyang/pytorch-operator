@@ -205,21 +205,29 @@ func (pc *PyTorchController) cleanupPyTorchJob(job *pyv1.PyTorchJob) error {
 		return nil
 	}
 	duration := time.Second * time.Duration(*ttl)
-	if currentTime.After(job.Status.CompletionTime.Add(duration)) {
+	if job.Status.CompletionTime == nil {
+		pylogger.LoggerForJob(job).Warnf("PytorchJob %s completion time is nil, cannot cleanup", job.Name)
+		return nil
+	}
+	finishTime := job.Status.CompletionTime
+	expireTime := finishTime.Add(duration)
+	if currentTime.After(expireTime) {
 		err := pc.deletePyTorchJobHandler(job)
 		if err != nil {
 			pylogger.LoggerForJob(job).Warnf("Cleanup PyTorchJob error: %v.", err)
 			return err
 		}
 		return nil
+	} else {
+		remaining := expireTime.Sub(currentTime)
+		key, err := KeyFunc(job)
+		if err != nil {
+			pylogger.LoggerForJob(job).Warnf("Couldn't get key for pyTorchJob object: %v", err)
+			return err
+		}
+		pc.WorkQueue.AddAfter(key, remaining)
+		return nil
 	}
-	key, err := KeyFunc(job)
-	if err != nil {
-		pylogger.LoggerForJob(job).Warnf("Couldn't get key for pytorchjob object: %v", err)
-		return err
-	}
-	pc.WorkQueue.AddRateLimited(key)
-	return nil
 }
 
 // deletePyTorchJob deletes the given PyTorchJob.

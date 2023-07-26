@@ -24,8 +24,8 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 
-	pyv1 "github.com/kubeflow/pytorch-operator/pkg/apis/pytorch/v1"
 	common "github.com/kubeflow/common/job_controller/api/v1"
+	pyv1 "github.com/kubeflow/pytorch-operator/pkg/apis/pytorch/v1"
 	pylogger "github.com/kubeflow/tf-operator/pkg/logger"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promauto"
@@ -79,10 +79,16 @@ func (pc *PyTorchController) updateStatusSingle(job *pyv1.PyTorchJob, rtype pyv1
 	if job.Status.StartTime == nil {
 		now := metav1.Now()
 		job.Status.StartTime = &now
-		// enqueue a sync to check if job past ActiveDeadlineSeconds
-		if job.Spec.ActiveDeadlineSeconds != nil {
+	}
+
+	// enqueue a sync to check if job past ActiveDeadlineSeconds
+	if job.Spec.ActiveDeadlineSeconds != nil {
+		now := metav1.Now()
+		duration := now.Time.Sub(job.Status.StartTime.Time)
+		if time.Duration(*job.Spec.ActiveDeadlineSeconds)*time.Second >= duration {
+			delayDuration := time.Duration(*job.Spec.ActiveDeadlineSeconds)*time.Second - duration
 			pylogger.LoggerForJob(job).Infof("Job with ActiveDeadlineSeconds will sync after %d seconds", *job.Spec.ActiveDeadlineSeconds)
-			pc.WorkQueue.AddAfter(jobKey, time.Duration(*job.Spec.ActiveDeadlineSeconds)*time.Second)
+			pc.WorkQueue.AddAfter(jobKey, delayDuration)
 		}
 	}
 

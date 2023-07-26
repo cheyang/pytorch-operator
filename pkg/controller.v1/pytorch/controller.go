@@ -61,6 +61,11 @@ const (
 
 	PytorchCleanPodStatusLabel = "arena.kubeflow.org/clean-pod-status"
 	PytorchCleanStatusDone     = "done"
+
+	// JobPastActiveDeadlineActionAnnotation job past active deadline action:
+	// event: only report event
+	// failed or nil: set job status to failed and report event
+	JobPastActiveDeadlineActionAnnotation = "arena.kubeflow.org/active-deadline-action"
 )
 
 var (
@@ -437,7 +442,11 @@ func (pc *PyTorchController) reconcilePyTorchJobs(job *pyv1.PyTorchJob) error {
 		failureMessage = fmt.Sprintf("PyTorchJob %s has failed because it has reached the specified backoff limit", job.Name)
 	} else if pc.pastActiveDeadline(job) {
 		failureMessage = fmt.Sprintf("PyTorchJob %s has failed because it was active longer than specified deadline", job.Name)
-		jobExceedsLimit = true
+		if action, ok := job.Annotations[JobPastActiveDeadlineActionAnnotation]; ok && action == "event" {
+			pc.Recorder.Event(job, v1.EventTypeWarning, pytorchJobFailedReason, failureMessage)
+		} else {
+			jobExceedsLimit = true
+		}
 	}
 
 	if jobExceedsLimit {

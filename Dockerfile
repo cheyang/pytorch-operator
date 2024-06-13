@@ -8,12 +8,10 @@ WORKDIR /go/src/github.com/kubeflow/pytorch-operator
 RUN go build ./cmd/pytorch-operator.v1
 
 #FROM registry.access.redhat.com/ubi8/ubi:latest
-FROM debian:buster
+FROM registry-cn-hangzhou.ack.aliyuncs.com/dev/debian:11-base
 
 COPY --from=build-image /go/src/github.com/kubeflow/pytorch-operator/pytorch-operator.v1 /pytorch-operator.v1
 
 COPY third_party/library/license.txt /license.txt
-
-RUN mkdir -p /vendor
 
 ENTRYPOINT ["/pytorch-operator.v1", "-alsologtostderr"]

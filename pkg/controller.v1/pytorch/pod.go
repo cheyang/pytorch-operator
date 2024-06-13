@@ -247,7 +247,6 @@ func setClusterSpec(podTemplateSpec *v1.PodTemplateSpec, job *pyv1.PyTorchJob, t
 		if rank != 0 {
 			return errors.New("invalid config: There should be only a single master with index=0")
 		}
-		masterAddr = "localhost"
 	} else {
 		rank = rank + 1
 	}
@@ -259,6 +258,7 @@ func setClusterSpec(podTemplateSpec *v1.PodTemplateSpec, job *pyv1.PyTorchJob, t
 		masterAddrFound := false
 		masterPortFound := false
 		worldSizeFound := false
+		pythonUnbufferedFound := false
 
 		for _, env := range podTemplateSpec.Spec.Containers[i].Env {
 			switch env.Name {
@@ -268,6 +268,8 @@ func setClusterSpec(podTemplateSpec *v1.PodTemplateSpec, job *pyv1.PyTorchJob, t
 				masterPortFound = true
 			case "WORLD_SIZE":
 				worldSizeFound = true
+			case "PYTHONUNBUFFERED":
+				pythonUnbufferedFound = true
 			}
 		}
 		if !masterPortFound {
@@ -292,10 +294,12 @@ func setClusterSpec(podTemplateSpec *v1.PodTemplateSpec, job *pyv1.PyTorchJob, t
 			Name:  "RANK",
 			Value: strconv.Itoa(rank),
 		})
-		podTemplateSpec.Spec.Containers[i].Env = append(podTemplateSpec.Spec.Containers[i].Env, v1.EnvVar{
-			Name:  "PYTHONUNBUFFERED",
-			Value: "0",
-		})
+		if !pythonUnbufferedFound {
+			podTemplateSpec.Spec.Containers[i].Env = append(podTemplateSpec.Spec.Containers[i].Env, v1.EnvVar{
+				Name:  "PYTHONUNBUFFERED",
+				Value: "1",
+			})
+		}
 	}
 	return nil
 }

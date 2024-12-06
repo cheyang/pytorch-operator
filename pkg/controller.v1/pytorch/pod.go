@@ -259,6 +259,8 @@ func setClusterSpec(podTemplateSpec *v1.PodTemplateSpec, job *pyv1.PyTorchJob, t
 		masterPortFound := false
 		worldSizeFound := false
 		pythonUnbufferedFound := false
+		nprocPerNodeFound := false
+		nprocPerNode := 1
 
 		for _, env := range podTemplateSpec.Spec.Containers[i].Env {
 			switch env.Name {
@@ -270,8 +272,12 @@ func setClusterSpec(podTemplateSpec *v1.PodTemplateSpec, job *pyv1.PyTorchJob, t
 				worldSizeFound = true
 			case "PYTHONUNBUFFERED":
 				pythonUnbufferedFound = true
+			case "PET_NPROC_PER_NODE":
+				nprocPerNodeFound = true
+				nprocPerNode = strconv.Atoi(env.Value)
 			}
 		}
+
 		if !masterPortFound {
 			podTemplateSpec.Spec.Containers[i].Env = append(podTemplateSpec.Spec.Containers[i].Env, v1.EnvVar{
 				Name:  "MASTER_PORT",
@@ -287,13 +293,22 @@ func setClusterSpec(podTemplateSpec *v1.PodTemplateSpec, job *pyv1.PyTorchJob, t
 		if !worldSizeFound {
 			podTemplateSpec.Spec.Containers[i].Env = append(podTemplateSpec.Spec.Containers[i].Env, v1.EnvVar{
 				Name:  "WORLD_SIZE",
-				Value: strconv.Itoa(int(totalReplicas)),
+				Value: strconv.Itoa(int(totalReplicas * nprocPerNode)),
 			})
 		}
 		podTemplateSpec.Spec.Containers[i].Env = append(podTemplateSpec.Spec.Containers[i].Env, v1.EnvVar{
 			Name:  "RANK",
 			Value: strconv.Itoa(rank),
 		})
+		podTemplateSpec.Spec.Containers[i].Env = append(podTemplateSpec.Spec.Containers[i].Env, v1.EnvVar{
+			Name:  "PET_NODE_RANK",
+			Value: strconv.Itoa(rank),
+		})
+		podTemplateSpec.Spec.Containers[i].Env = append(
+			podTemplateSpec.Spec.Containers[i].Env, v1.EnvVar{
+				Name:  "PET_NNODES",
+				Value: strconv.Itoa(int(totalReplicas)),
+			})
 		if !pythonUnbufferedFound {
 			podTemplateSpec.Spec.Containers[i].Env = append(podTemplateSpec.Spec.Containers[i].Env, v1.EnvVar{
 				Name:  "PYTHONUNBUFFERED",
